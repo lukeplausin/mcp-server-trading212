@@ -1,4 +1,4 @@
-from mcp_server_trading212.server import main
+from src.server import main
 import os
 
 # This file is a debugging entrypoint for IDE work
