@@ -1,7 +1,7 @@
 # Trading212 MCP Server
 
 <div style="color: #856404; background-color: #fff3cd; border-left: 4px solid #ffeeba; padding: 10px;">
-⚠️ **Warning:** Putting an AI in charge of your stock broker is inherently risky. Do not use this connector unless you have considered the risks and put appropriate controls in place to manage those risks.
+⚠️ **Warning**: Putting an AI in charge of your stock broker is inherently risky. Do not use this connector unless you have considered the risks and put appropriate controls in place to manage those risks.
 
 By using this connector you agree to the terms of the MIT license, which includes indemnity from any financial losses resulting from it's use.
 
