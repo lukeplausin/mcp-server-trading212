@@ -144,7 +144,7 @@ async def serve(api_key: str, environment: str ="demo", cache_ttl: int = 300) ->
                         },
                         "instrumentShares": {
                             "type": "object",
-                            "description": "A dictionary mapping stock tickers (keys) to percentage allocation (values).",
+                            "description": "A dictionary mapping stock tickers (keys) to percentage allocation (values). All values in the allocation must sum to 1.00 and have no more than 2 decimal places.",
                             "minProperties": 1,
                             "propertyNames": {
                                 "type": "string",
@@ -153,7 +153,7 @@ async def serve(api_key: str, environment: str ="demo", cache_ttl: int = 300) ->
                             "additionalProperties": {
                                 "type": "number",
                                 "minimum": 0,
-                                "maximum": 100
+                                "maximum": 1
                             }
                         },
                     },
