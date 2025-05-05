@@ -48,36 +48,14 @@ The server offers these tools:
 
 #### Order management
 
-- `place_market_order`
-   - Place a market order via Trading212
+- `place_order`
+   - Place an active order via Trading212. Will dynamically select the correct order type based on inputs.
    - Input:
      - `ticker` (string): The ticker of the stock to order
      - `quantity` (float): The amount to buy or sell
-   - Returns: Data object from the Trading212 API
-
-- `place_limit_order` (coming soon)
-   - Place a limit order via Trading212
-   - Input:
-     - `ticker` (string): The ticker of the stock to order
-     - `quantity` (float): The amount to buy or sell
-     - `limit` (float): The price limit
-   - Returns: Data object from the Trading212 API
-
-- `place_stop_order` (coming soon)
-   - Place a stop order via Trading212
-   - Input:
-     - `ticker` (string): The ticker of the stock to order
-     - `quantity` (float): The amount to buy or sell
-     - `stop` (float): The price stop
-   - Returns: Data object from the Trading212 API
-
-- `place_stop_limit_order` (coming soon)
-   - Place a stop/limit order via Trading212
-   - Input:
-     - `ticker` (string): The ticker of the stock to order
-     - `quantity` (float): The amount to buy or sell
-     - `stop` (float): The price stop
-     - `limit` (float): The price limit
+     - `stopPrice` (float): The stop price (if appropriate)
+     - `limitPrice` (float): The limit price (if appropriate)
+     - `validDuration` (string): The duration of the order (DAY / GTC)
    - Returns: Data object from the Trading212 API
 
 - `cancel_order` (coming soon)
@@ -86,9 +64,26 @@ The server offers these tools:
      - `ticker` (string): The ticker of the order
    - Returns: Data object from the Trading212 API
 
-- `update_pie` (coming soon)
-   - Create/update a "pie" in Trading212
-   - Input: (TBC)
+- `create_pie` (coming soon)
+   - Create a "pie" in Trading212
+   - Input:
+    - `dividendCashAction` (str): What to do with dividends
+    - `endDate` (str): When the pie goal ends
+    - `goal` (int): Saving goal for the pie
+    - `icon` (str): What icon to use for the pie
+    - `instrumentShares` (dict[str, float]): Mapping of ticker names to share allocations.
+    - `name` (str): A name for the pie
+   - Returns: Data object from the Trading212 API
+
+- `update_pie`
+   - Update a "pie" in Trading212
+   - Input:
+    - `dividendCashAction` (str): What to do with dividends
+    - `endDate` (str): When the pie goal ends
+    - `goal` (int): Saving goal for the pie
+    - `icon` (str): What icon to use for the pie
+    - `instrumentShares` (dict[str, float]): Mapping of ticker names to share allocations.
+    - `name` (str): A name for the pie
    - Returns: Data object from the Trading212 API
 
 #### Account data
