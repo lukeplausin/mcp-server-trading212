@@ -1,6 +1,6 @@
 [project]
 name = "mcp-server-trading212"
-version = "0.1.0"
+version = "0.2.0"
 description = "This MCP tool will allow AI agents to connect to your Trading212 account in order to manage your portfolio for you"
 readme = "README.md"
 requires-python = ">=3.10"

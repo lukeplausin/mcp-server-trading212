@@ -85,7 +85,7 @@ class Trading212API:
             self.redis = None
             self.memcache = TTLCache(maxsize=100, ttl=self.cache_ttl)
 
-    
+    # Caching
     def _ensure_redis_connection(self) -> None:
         """Ensure Redis connection is working"""
         try:
@@ -104,7 +104,7 @@ class Trading212API:
             if cached_data:
                 return pickle.loads(cached_data)
         return None
-    
+
     def _set_in_cache(self, key: str, data: Dict[str, Any]) -> None:
         """Store data in Redis cache with expiration time"""
         if self.redis:
@@ -112,7 +112,31 @@ class Trading212API:
             self.redis.setex(key, self.cache_ttl, serialized_data)
         if isinstance(self.memcache, TTLCache):
             self.memcache[key] = pickle.dumps(data)
+
+    def _clear_cache_key(self, key: str) -> None:
+        """Store data in Redis cache with expiration time"""
+        if self.redis:
+            self.redis.setex(key, 1, None)
+        if isinstance(self.memcache, TTLCache):
+            self.memcache[key] = None
+
+    def clear_cache(self) -> None:
+        """Clear all cached data"""
+        # Delete all keys starting with t212:
+        for key in self.redis.keys("t212:*"):
+            self.redis.delete(key)
     
+    def get_cache_stats(self) -> Dict[str, int]:
+        """Get cache statistics"""
+        keys = self.redis.keys("t212:*")
+        return {
+            "total_keys": len(keys),
+            "portfolio_cached": bool(self.redis.exists("t212:portfolio")),
+            "account_info_cached": bool(self.redis.exists("t212:account_info")),
+            "account_balance_cached": bool(self.redis.exists("t212:account_balance")),
+        }
+
+    # Account info
     def get_portfolio(self) -> Dict[str, Any]:
         """Retrieve the current portfolio positions"""
         cache_key = "t212:portfolio"
@@ -195,30 +219,108 @@ class Trading212API:
         data_by_symbol = self.get_equity_info()
         return list(data_by_symbol.keys())
 
-    def clear_cache(self) -> None:
-        """Clear all cached data"""
-        # Delete all keys starting with t212:
-        for key in self.redis.keys("t212:*"):
-            self.redis.delete(key)
-    
-    def get_cache_stats(self) -> Dict[str, int]:
-        """Get cache statistics"""
-        keys = self.redis.keys("t212:*")
-        return {
-            "total_keys": len(keys),
-            "portfolio_cached": bool(self.redis.exists("t212:portfolio")),
-            "account_info_cached": bool(self.redis.exists("t212:account_info")),
-            "account_balance_cached": bool(self.redis.exists("t212:account_balance")),
-        }
+    def get_pies(self) -> Dict[str, Any]:
+        """Retrieve information about pies"""
+        cache_key = "t212:pies"
+        cached_data = self._get_from_cache(cache_key)
+        if cached_data:
+            return cached_data
+            
+        response = self.client.get("/equity/pies")
+        response.raise_for_status()
+        data = response.json()
+        self._set_in_cache(cache_key, data)
+        return data
+
+    def get_pie_details(self, id: int) -> Dict[str, Any]:
+        """Retrieve information about pies"""
+        cache_key = f"t212:pies:{id}"
+        cached_data = self._get_from_cache(cache_key)
+        if cached_data:
+            return cached_data
+            
+        response = self.client.get(f"/equity/pies/{id}")
+        response.raise_for_status()
+        data = response.json()
+        self._set_in_cache(cache_key, data)
+        return data
 
     # Tools:
     def create_market_order(self, ticker: str, quantity: float) -> Dict[str, Any]:
-        """Create a working order"""
+        """Create a working market order"""
         response = self.client.post("/equity/orders/market", json={
             "ticker": ticker,
             "quantity": quantity,
         })
         response.raise_for_status()
+        data = response.json()
+        return data
+
+    def create_limit_order(self, ticker: str, quantity: float, limitPrice: float, timeValidity: str = "DAY") -> Dict[str, Any]:
+        """Create a working limit order"""
+        response = self.client.post("/equity/orders/market", json={
+            "ticker": ticker,
+            "quantity": quantity,
+            "limitPrice": limitPrice,
+            "timeValidity": timeValidity
+        })
+        response.raise_for_status()
+        data = response.json()
+        return data
+
+    def create_stop_order(self, ticker: str, quantity: float, stopPrice: float, timeValidity: str = "DAY") -> Dict[str, Any]:
+        """Create a working stop order"""
+        response = self.client.post("/equity/orders/market", json={
+            "ticker": ticker,
+            "quantity": quantity,
+            "stopPrice": stopPrice,
+            "timeValidity": timeValidity
+        })
+        response.raise_for_status()
+        data = response.json()
+        return data
+
+    def create_stop_limit_order(self, ticker: str, quantity: float, stopPrice: float, limitPrice: float, timeValidity: str = "DAY") -> Dict[str, Any]:
+        """Create a working stop/limit order"""
+        response = self.client.post("/equity/orders/market", json={
+            "ticker": ticker,
+            "quantity": quantity,
+            "stopPrice": stopPrice,
+            "limitPrice": limitPrice,
+            "timeValidity": timeValidity
+        })
+        response.raise_for_status()
+        data = response.json()
+        return data
+
+    def update_pie(
+            self, id: int, dividendCashAction: str = None, endDate: str = None,
+            goal: int = 0, icon: str = None, instrumentShares: Dict[str, float] = None, name: str = None) -> Dict[str, Any]:
+        """Update a Trading212 pie"""
+
+        payload = {}
+        if dividendCashAction:
+            payload["dividendCashAction"] = dividendCashAction
+        if endDate:
+            payload["endDate"] = endDate
+        if goal:
+            payload["goal"] = goal
+        if icon:
+            payload["icon"] = icon
+        if instrumentShares:
+            payload["instrumentShares"] = instrumentShares
+        if name:
+            payload["endDate"] = name
+
+        response = self.client.post(
+            f"/equity/pies/{id}",
+            json=payload
+        )
+        response.raise_for_status()
+
+        cache_key = f"t212:pies:{id}"
+        self._clear_cache_key(cache_key)
+
         data = response.json()
         return data
 

@@ -14,8 +14,9 @@ You should test the connector using "demo" mode before deploying to your live ac
 The purpose of this MCP tool is to allow you to connect agentic AI to your Trading212 brokerage account. This will allow you to perform actions such as the following:
 
 - Allow an AI to analyse and critique your portfolio
-- Get the AI to suggest some stocks and order them on your behalf
-- Allow the AI to manage a Trading212 investment pie on your behalf (coming soon)
+- Get the AI to suggest some stocks and order them on your behalf (due to a restriction in the Trading212 API, orders can only be created in practice mode currently)
+- Allow the AI to manage/update a Trading212 investment pie on your behalf
+- Allow the AI to create a Trading212 investment pie on your behalf (coming soon)
 
 Due to aggressive API rate limits imposed by the Trading212 API, this tool will attempt to cache API results in-memory (the default TTL is 5 minutes).
 

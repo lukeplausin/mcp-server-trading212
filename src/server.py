@@ -8,6 +8,7 @@ from mcp.server.models import InitializationOptions
 from mcp.shared.exceptions import McpError
 import mcp.server.stdio
 import json
+import httpx
 
 from .t212 import Trading212API
 from .sse_server import SseServerSettings, run_sse_server
@@ -56,10 +57,14 @@ async def serve(api_key: str, environment: str ="demo", cache_ttl: int = 300) ->
         return [
             # These are tools
             types.Tool(
-                name="create_market_order",
+                name="create_order",
                 description="""Create a working order in the Trading212 brokerage account. Use this tool when you need to:
                 - Buy or sell stocks, ETFs and other traded securities
-                - Buy or sell at current market value only""",
+                - Buy or sell at current market value (by providing ticker and quantity only)
+                - Submit a stop order (by submitting a ticker, quantity and stopPrice)
+                - Submit a limit order (by submitting a ticker, quantity and limitPrice)
+                - Submit a stop/limit order (by submitting a ticker, quantity, stopPrice and limitPrice)
+                - timeValidity can be specified for all orders, except a market value order.""",
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -70,6 +75,19 @@ async def serve(api_key: str, environment: str ="demo", cache_ttl: int = 300) ->
                         "quantity": {
                             "type": "float",
                             "description": "Quantity of security to be traded"
+                        },
+                        "stopPrice": {
+                            "type": "float",
+                            "description": "Lower price limit below which the order is activated. If a stop and limit price are provided, a stop/limit order is created."
+                        },
+                        "limitPrice": {
+                            "type": "float",
+                            "description": "Upper price limit above which the order is activated. If a stop and limit price are provided, a stop/limit order is created."
+                        },
+                        "timeValidity": {
+                            "type": "string",
+                            "enum": ["DAY", "GOOD_TIL_CANCEL"],
+                            "description": "Specifies how long the order is valid for. Can be DAY or GOOD_TIL_CANCEL."
                         }
                     },
                     "required": ["ticker", "quantity"]
@@ -99,6 +117,47 @@ async def serve(api_key: str, environment: str ="demo", cache_ttl: int = 300) ->
                         }
                     },
                     "required": ["search_term"]
+                }
+            ),
+            types.Tool(
+                name="update_pie",
+                description="""Update the details of a single pie, including current stock allocations (a pie is simply a group of equities with fixed ratios which can be considered as a self-managed fund). Use this tool when you need to:
+                - Update the current stock allocations in the pie
+                - Verify whether dividends are reinvesting or extracted
+                - Force the pie to rebalance holdings now
+                - Update other information about the pie""",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "id": {
+                            "type": "integer",
+                            "description": "ID of the pie"
+                        },
+                        "name": {
+                            "type": "string",
+                            "description": "Name of the pie"
+                        },
+                        "dividendCashAction": {
+                            "type": "string",
+                            "enum": ["REINVEST", "TO_ACCOUNT_CASH"],
+                            "description": "Specifies what to do with dividend payments from pie constituents."
+                        },
+                        "instrumentShares": {
+                            "type": "object",
+                            "description": "A dictionary mapping stock tickers (keys) to percentage allocation (values).",
+                            "minProperties": 1,
+                            "propertyNames": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "additionalProperties": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 100
+                            }
+                        },
+                    },
+                    "required": ["id"]
                 }
             ),
 
@@ -192,54 +251,115 @@ async def serve(api_key: str, environment: str ="demo", cache_ttl: int = 300) ->
                     "required": ["ticker"]
                 }
             ),
+            types.Tool(
+                name="get_pies",
+                description="""Get the list of all investment "pies" in this account (a pie is simply a group of equities with fixed ratios which can be considered as a self-managed fund). Use this tool when you need to:
+                - List all pies in the account
+                Use the "get_pie_details" tool to get detailed information about the pie, by ID.""",
+                inputSchema={
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                }
+            ),
+            types.Tool(
+                name="get_pie_details",
+                description="""Gets detailed information about a single pie, including current stock allocations (a pie is simply a group of equities with fixed ratios which can be considered as a self-managed fund). Use this tool when you need to:
+                - Check the current stock allocations in the pie
+                - Verify whether dividends are reinvesting or extracted
+                - Check the pie cash balance
+                - See other information about the pie""",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "id": {
+                            "type": "integer",
+                            "description": "ID of the pie"
+                        },
+                    },
+                    "required": ["id"]
+                }
+            ),
         ]
 
     @server.call_tool()
     async def handle_call_tool(
         name: str, arguments: dict | None
     ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
-        if name == "create_market_order":
-            if not arguments or "ticker" not in arguments:
-                raise ValueError("Missing ticker argument")
-            data = await api.create_market_order(**arguments)
+        try:
+            if name == "create_order":
+                if not arguments or "ticker" not in arguments:
+                    raise ValueError("Missing ticker argument")
+                if "stopPrice" in arguments:
+                    if "limitPrice" in arguments:
+                        data = await api.create_stop_limit_order(**arguments)
+                    else:
+                        data = await api.create_stop_order(**arguments)
+                elif "limitPrice" in arguments:
+                    data = await api.create_limit_order(**arguments)
+                else:
+                    data = await api.create_market_order(**arguments)
+            elif name == "update_pie":
+                if not arguments or "id" not in arguments:
+                    raise ValueError("Missing id")
+                data = api.update_pie(**arguments)
 
-        # These ones should be resources...
-        elif name == "get_portfolio":
-            data = api.get_portfolio()
-        elif name == "get_account_info":
-            data = api.get_account_info()
-        elif name == "get_account_cash":
-            data = api.get_account_balance()
-        elif name == "get_all_instruments":
-            # This returns a lot of data...
-            data = api.get_equity_info()
-        elif name == "get_instrument_list":
-            data = api.list_equities()
-        elif name == "get_instrument":
-            if not arguments or "ticker" not in arguments:
-                raise ValueError("Missing ticker argument")
-            data = api.get_equity_info(**arguments)
-        elif name == "search_instruments":
-            if not arguments or "search_term" not in arguments:
-                raise ValueError("Missing search_term")
-            data = api.search_instruments(**arguments)
-            # This particular one will display better as a list
-            data = list(data.values())
-        else:
-            raise ValueError(f"Unknown tool: {name}")
+            # These ones should be resources...
+            elif name == "get_pies":
+                data = api.get_pies()
+            elif name == "get_pie_details":
+                if not arguments or "id" not in arguments:
+                    raise ValueError("Missing id")
+                data = api.get_pie_details(**arguments)
 
-        if isinstance(data, list):
+            elif name == "get_portfolio":
+                data = api.get_portfolio()
+            elif name == "get_account_info":
+                data = api.get_account_info()
+            elif name == "get_account_cash":
+                data = api.get_account_balance()
+            elif name == "get_all_instruments":
+                # This returns a lot of data...
+                data = api.get_equity_info()
+            elif name == "get_instrument_list":
+                data = api.list_equities()
+            elif name == "get_instrument":
+                if not arguments or "ticker" not in arguments:
+                    raise ValueError("Missing ticker argument")
+                data = api.get_equity_info(**arguments)
+            elif name == "search_instruments":
+                if not arguments or "search_term" not in arguments:
+                    raise ValueError("Missing search_term")
+                data = api.search_instruments(**arguments)
+                # This particular one will display better as a list
+                data = list(data.values())
+            else:
+                raise ValueError(f"Unknown tool: {name}")
+
+            if isinstance(data, list):
+                return [
+                    types.TextContent(
+                        type="text",
+                        text=json.dumps(item, default=str),
+                    ) for item in data
+                ]
+            else:
+                return [
+                    types.TextContent(
+                        type="text",
+                        text=json.dumps(data, default=str),
+                    )
+                ]
+        except httpx.HTTPError as e:
+            # print(f"Could not fetch detailed information for {symbol}: {e}")
             return [
                 types.TextContent(
                     type="text",
-                    text=json.dumps(item, default=str),
-                ) for item in data
-            ]
-        else:
-            return [
-                types.TextContent(
-                    type="text",
-                    text=json.dumps(data, default=str),
+                    text=json.dumps({
+                        "status_code": e.response.status_code,
+                        "reason": str(e),
+                        "body": e.response.text
+                    }, default=str),
                 )
             ]
 
