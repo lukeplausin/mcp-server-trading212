@@ -26,3 +26,6 @@ dev-dependencies = ["pyright>=1.1.389"]
 
 [project.scripts]
 mcp-server-trading212 = "mcp_server_trading212:main"
+
+[pypi]
+  username = "__token__"
