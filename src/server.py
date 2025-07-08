@@ -106,12 +106,12 @@ async def serve(api_key: str, environment: str ="demo", cache_ttl: int = 300) ->
                             "description": "The term to perform the search by (for example, human readable name)"
                         },
                         "threshold": {
-                            "type": "int",
+                            "type": "integer",
                             "description": "The minimum levenshtein score for a search result to be shown, between 0 (lowest) to 100 (highest). Default: 70.",
                             "default": 70
                         },
                         "limit": {
-                            "type": "int",
+                            "type": "integer",
                             "description": "The maximum number of results to include in the output. Default: 15.",
                             "default": 15
                         }
