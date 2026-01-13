@@ -190,6 +190,43 @@ uv --directory path/to/project run --api-key '<KEEP_THIS_SECRET>' --environment 
 }
 ```
 
+## Use with Google Gemini CLI
+
+Requirements:
+1. `Node.js` version 20 or higher. You can download it from (here)[https://nodejs.org/en/download].
+2. `gemini-cli`. You can find more information on how to install (here)[https://github.com/google-gemini/gemini-cli]. 
+
+It maybe necessary to run gemini-cli in the terminal of the project folder. 
+
+### gemini mcp config setup
+
+The settings file is by default located in `~/.gemini/settings.json`
+
+```bash
+{
+  "theme": "Default",
+  "selectedAuthType": "oauth-personal",
+  "mcpServers": {
+    "trading212": {
+      "command": "uv", // Path to your uv executable
+      "args": [
+        "run",                     // uv subcommand
+        "--directory",             // uv argument to set working directory
+        "absolute/path/to/project/mcp-server-trading212", // Your abosulte path project root
+        "mcp-server-trading212"    // The Python module name
+      ],
+      "env": {
+        "TRADING212_API_KEY": "your-trading212-api-key", // Your actual API Key
+        "TRADING212_ENVIRONMENT": "demo" // Or "live" if you're using a live account
+      }
+    }
+  }
+}
+```
+
+Note: Use `which uv` to find the correct path to `uv executable`.
+
+
 If you are connecting to your tool server over an untrusted network (e.g. the internet) then you should host the tool server behind a reverse proxy that implements HTTPS encryption. Mutual TLS would be a good idea as well. Caddy can do all that for you.
 
 ## Building
